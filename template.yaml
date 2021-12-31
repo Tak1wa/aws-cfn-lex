@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Lex V2 Bot Template
+Parameters: 
+  BotName:
+    Description: Bot Name.
+    Type: String
+Resources: 
+  Bot:
+    Type: AWS::Lex::Bot
+    Properties: 
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      Name: !Ref BotName
+      RoleArn: !GetAtt BotRuntimeRole.Arn
+      AutoBuildBotLocales: false
+      BotLocales:
+        - LocaleId: ja_JP
+          NluConfidenceThreshold: 0.5
+          # カスタムスロットタイプ
+          SlotTypes:
+            - Name: FlowerTypes
+              ValueSelectionSetting:
+                ResolutionStrategy: ORIGINAL_VALUE
+              SlotTypeValues:
+                - SampleValue: 
+                    Value: ユリ
+                - SampleValue: 
+                    Value: バラ
+                - SampleValue: 
+                    Value: チューリップ
+          # インテント
+          Intents:
+            - Name: FallbackIntent
+              Description: 花のブーケを注文するインテント
+              ParentIntentSignature: AMAZON.FallbackIntent
+            - Name: HogeIntent
+              # サンプル発話
+              SampleUtterances:
+                - Utterance: 花を注文
+                - Utterance: 花を注文します
+              # スロット
+              Slots:
+                - Name: FlowerType
+                  SlotTypeName: FlowerTypes
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MaxRetries: 3
+                      MessageGroupsList:
+                        - Message: 
+                            PlainTextMessage: 
+                              Value: どのような花を注文しますか?
+                - Name: PickupDate
+                  SlotTypeName: AMAZON.Date
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MaxRetries: 3
+                      MessageGroupsList:
+                        - Message: 
+                            PlainTextMessage: 
+                              Value: 何日に {FlowerType} を受け取りますか?
+                - Name: PickupTime
+                  SlotTypeName: AMAZON.Time
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MaxRetries: 3
+                      MessageGroupsList:
+                        - Message: 
+                            PlainTextMessage: 
+                              Value: 何時に {FlowerType} を受け取りますか?
+              # スロットの優先順位
+              SlotPriorities:
+                - Priority: 1
+                  SlotName: FlowerType
+                - Priority: 2
+                  SlotName: PickupDate
+                - Priority: 3
+                  SlotName: PickupTime
+              # 確認プロンプトと応答拒否
+              IntentConfirmationSetting: 
+                PromptSpecification:
+                  MaxRetries: 3
+                  MessageGroupsList:
+                    - Message:
+                        PlainTextMessage:
+                          Value: わかりました。{FlowerType} は {PickupDate} の {PickupTime} に受け取ることができます。これでよろしいですか?
+                DeclinationResponse:
+                  MessageGroupsList:
+                    - Message:
+                        PlainTextMessage:
+                          Value: それでは、注文は行いません。
+
+  BotVersion1:
+    Type: AWS::Lex::BotVersion
+    Properties:
+      BotId: !Ref Bot
+      BotVersionLocaleSpecification:
+        - LocaleId: ja_JP
+          BotVersionLocaleDetails:
+            SourceBotVersion: DRAFT
+  BotVersion2:
+    Type: AWS::Lex::BotVersion
+    Properties:
+      BotId: !Ref Bot
+      BotVersionLocaleSpecification:
+        - LocaleId: ja_JP
+          BotVersionLocaleDetails:
+            SourceBotVersion: DRAFT
+
+  BotProd:
+    Type: AWS::Lex::BotAlias
+    Properties:
+      BotId: !Ref Bot
+      BotAliasName: "Prod"
+      BotVersion: !GetAtt BotVersion1.BotVersion
+  BotBeta:
+    Type: AWS::Lex::BotAlias
+    Properties:
+      BotId: !Ref Bot
+      BotAliasName: "Beta"
+      BotVersion: !GetAtt BotVersion2.BotVersion
+
+  BotRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lexv2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: LexRuntimeRolePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "polly:SynthesizeSpeech"
+                Resource: "*"
