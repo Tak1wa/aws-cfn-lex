@@ -109,6 +109,14 @@ Resources:
         - LocaleId: ja_JP
           BotVersionLocaleDetails:
             SourceBotVersion: DRAFT
+  BotVersion3:
+    Type: AWS::Lex::BotVersion
+    Properties:
+      BotId: !Ref Bot
+      BotVersionLocaleSpecification:
+        - LocaleId: ja_JP
+          BotVersionLocaleDetails:
+            SourceBotVersion: DRAFT
 
   BotProd:
     Type: AWS::Lex::BotAlias
@@ -121,7 +129,7 @@ Resources:
     Properties:
       BotId: !Ref Bot
       BotAliasName: "Beta"
-      BotVersion: !GetAtt BotVersion2.BotVersion
+      BotVersion: !GetAtt BotVersion3.BotVersion
 
   BotRuntimeRole:
     Type: AWS::IAM::Role
